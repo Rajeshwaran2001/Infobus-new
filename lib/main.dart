@@ -70,7 +70,7 @@ class _WebViewAppState extends State<WebViewApp> {
           // Loader Overlay
           if (isLoading)
             Container(
-              color: Colors.white.withValues(255, 255, 255, 178), // Background overlay
+              color: Colors.white.withAlpha((0.7 * 255).toInt()), // Background overlay
               child: const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
