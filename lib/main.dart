@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'src/webview_stack.dart';
-import 'src/navigation_controls.dart';
+import 'src/navigation_controls.dart'; // Removed 'webview_stack.dart' as it's unused
 
 void main() {
   runApp(
@@ -49,51 +48,49 @@ class _WebViewAppState extends State<WebViewApp> {
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://infobus.in/customer-view-new'));
+      ..loadRequest(Uri.parse('https://infobus.in/new-view'));
   }
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('InfoBus', style: TextStyle(color: Colors.white)),
-        backgroundColor: Color(0xFFDE1A2A),
-        iconTheme: IconThemeData(color: Colors.white),
+        backgroundColor: const Color(0xFFDE1A2A), // Added 'const'
+        iconTheme: const IconThemeData(color: Colors.white), // Added 'const'
         centerTitle: true,
         actions: [
           NavigationControls(controller: controller),
         ],
       ),
-
       body: Stack(
-  children: [
-    WebViewWidget(controller: controller), // WebView content
+        children: [
+          WebViewWidget(controller: controller), // WebView content
 
-    // Loader Overlay
-    if (isLoading)
-      Container(
-        color: Colors.white.withOpacity(0.7), // Background overlay
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: Colors.red), // Loading spinner
-              SizedBox(height: 10),
-              Text(
-                'Loading...', 
-                style: TextStyle(
-                  fontSize: 16, 
-                  fontWeight: FontWeight.bold, 
-                  color: Colors.black,
+          // Loader Overlay
+          if (isLoading)
+            Container(
+              color: Colors.white.withOpacity(0.7), // Background overlay
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Colors.red), // Loading spinner
+                    SizedBox(height: 10),
+                    Text(
+                      'Loading...', 
+                      style: TextStyle(
+                        fontSize: 16, 
+                        fontWeight: FontWeight.bold, 
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
-  ],
-),
     );
   }
 }
