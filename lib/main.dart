@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'src/navigation_controls.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'dart:io';
+import 'dart:async';
 
 void main() {
   runApp(
@@ -115,19 +117,22 @@ class SecondScreen extends StatefulWidget {
 class _SecondScreenState extends State<SecondScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool isPlaying = false;
-  bool isLoading = true; // Track loading state
+  bool isLoading = true;
+  final ScrollController _scrollController = ScrollController();
 
-  final String streamUrl = "http://cast3.my-control-panel.com:7714/stream?type=mp3&nocache=2";
+  final String streamUrl =
+      "http://cast3.my-control-panel.com:7714/stream?type=mp3&nocache=2";
 
   @override
   void initState() {
     super.initState();
-    _startPlaying(); // Start playing audio when the screen is opened
+    _startPlaying();
   }
 
   @override
   void dispose() {
     _audioPlayer.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -163,34 +168,145 @@ class _SecondScreenState extends State<SecondScreen> {
     });
   }
 
+  void _stopAndExit() {
+    _audioPlayer.stop();
+    exit(0);
+  }
+
   @override
   Widget build(BuildContext context) {
+    List<Map<String, String>> schedule = [
+      {"time": "6.15 AM", "content": "Indraya sinthanai"},
+      {"time": "6.40 AM", "content": "Birthday wishes"},
+      {"time": "7.05 AM", "content": "Indraya kural"},
+      {"time": "7.40 AM", "content": "On board morning wishes"},
+      {"time": "8.15 AM", "content": "Birthday wishes"},
+      {"time": "8.40 AM", "content": "General awareness"},
+      {"time": "9.20 AM", "content": "Birthday wishes"},
+      {"time": "9.50 AM", "content": "General information"},
+      {"time": "10.25 AM", "content": "Passenger alerting"},
+      {"time": "10.45 AM", "content": "Driver / Crew awareness"},
+      {"time": "11.15 AM", "content": "Welcome wishes"},
+      {"time": "11.50 AM", "content": "Passenger - Thanking tags"},
+      {"time": "12.05 PM", "content": "General information"},
+      {"time": "12.40 PM", "content": "Passenger alerts"},
+      {"time": "1.15 PM", "content": "General awareness"},
+      {"time": "1.45 PM", "content": "General information"},
+      {"time": "2.10 PM", "content": "Driver / Crew awareness"},
+      {"time": "2.55 PM", "content": "Passenger - Thanking tags"},
+      {"time": "3.20 PM", "content": "General information"},
+      {"time": "3.45 PM", "content": "Passenger alerts"},
+      {"time": "4.15 PM", "content": "Welcome wishes"},
+      {"time": "4.50 PM", "content": "Passenger - Thanking tags"},
+      {"time": "5.15 PM", "content": "General awareness"},
+      {"time": "5.45 PM", "content": "Driver alert messages"},
+      {"time": "6.20 PM", "content": "General information"},
+      {"time": "6.50 PM", "content": "Birthday wishes"},
+      {"time": "7.25 PM", "content": "Wedding wishes"},
+      {"time": "7.40 PM", "content": "Passenger alerts"},
+      {"time": "8.15 PM", "content": "General information"},
+      {"time": "8.40 PM", "content": "Driver alert messages"},
+      {"time": "9.10 PM", "content": "General Wishes tag"},
+      {"time": "9.35 PM", "content": "Passenger - Thanking tags"},
+    ];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("FM Radio", style: TextStyle(color: Colors.white)),
+        title: const Text("InfoBus Radio",
+            style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFFDE1A2A),
       ),
-      body: Center(
-        child: isLoading
-            ? const CircularProgressIndicator(color: Colors.red) // Show loading indicator
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                      size: 80,
-                      color: Colors.red,
-                    ),
-                    onPressed: _togglePlayPause,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    isPlaying ? "Playing..." : "Paused",
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                ],
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 20.0),
+              child: Image.asset(
+                'images/fm_radio.png',
+                width: 380,
+                height: 100,
+                fit: BoxFit.scaleDown,
               ),
+            ),
+            const SizedBox(height: 10),
+            isLoading
+                ? const CircularProgressIndicator(color: Colors.red)
+                : Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              isPlaying
+                                  ? Icons.pause_circle_filled
+                                  : Icons.play_circle_filled,
+                              size: 80,
+                              color: Colors.red,
+                            ),
+                            onPressed: _togglePlayPause,
+                          ),
+                          const SizedBox(width: 20),
+                          IconButton(
+                            icon: const Icon(Icons.stop_circle,
+                                size: 80, color: Colors.red),
+                            onPressed: _stopAndExit,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        isPlaying ? "Playing..." : "Paused",
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ],
+                  ),
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Table(
+                    border: TableBorder.all(),
+                    columnWidths: const {
+                      0: FractionColumnWidth(0.3),
+                      1: FractionColumnWidth(0.7),
+                    },
+                    children: [
+                      TableRow(children: [
+                        TableCell(
+                            child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("Time Slot",
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold)))),
+                        TableCell(
+                            child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("On Air - Content",
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold)))),
+                      ]),
+                      ...schedule.map((entry) => TableRow(children: [
+                            TableCell(
+                                child: Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: Text(entry['time']!))),
+                            TableCell(
+                                child: Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: Text(entry['content']!))),
+                          ])).toList(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
