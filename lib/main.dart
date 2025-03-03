@@ -116,7 +116,7 @@ class _SecondScreenState extends State<SecondScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool isPlaying = false;
 
-  final String streamUrl = "https://cast3.my-control-panel.com:7714/stream?type=mp3&nocache=2";
+  final String streamUrl = "http://cast3.my-control-panel.com:7714/stream?type=mp3&nocache=2";
 
   @override
   void dispose() {
