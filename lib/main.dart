@@ -115,8 +115,15 @@ class SecondScreen extends StatefulWidget {
 class _SecondScreenState extends State<SecondScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool isPlaying = false;
+  bool isLoading = true; // Track loading state
 
   final String streamUrl = "http://cast3.my-control-panel.com:7714/stream?type=mp3&nocache=2";
+
+  @override
+  void initState() {
+    super.initState();
+    _startPlaying(); // Start playing audio when the screen is opened
+  }
 
   @override
   void dispose() {
@@ -124,14 +131,35 @@ class _SecondScreenState extends State<SecondScreen> {
     super.dispose();
   }
 
+  Future<void> _startPlaying() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    await _audioPlayer.setSourceUrl(streamUrl);
+    await _audioPlayer.resume();
+
+    setState(() {
+      isPlaying = true;
+      isLoading = false;
+    });
+  }
+
   void _togglePlayPause() async {
     if (isPlaying) {
       await _audioPlayer.pause();
     } else {
-      await _audioPlayer.play(UrlSource(streamUrl));
+      setState(() {
+        isLoading = true;
+      });
+
+      await _audioPlayer.setSourceUrl(streamUrl);
+      await _audioPlayer.resume();
     }
+
     setState(() {
       isPlaying = !isPlaying;
+      isLoading = false;
     });
   }
 
@@ -143,29 +171,26 @@ class _SecondScreenState extends State<SecondScreen> {
         backgroundColor: const Color(0xFFDE1A2A),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              "Now Playing: FM Radio",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            IconButton(
-              icon: Icon(
-                isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                size: 80,
-                color: Colors.red,
+        child: isLoading
+            ? const CircularProgressIndicator(color: Colors.red) // Show loading indicator
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                      size: 80,
+                      color: Colors.red,
+                    ),
+                    onPressed: _togglePlayPause,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    isPlaying ? "Playing..." : "Paused",
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                ],
               ),
-              onPressed: _togglePlayPause,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              isPlaying ? "Playing..." : "Paused",
-              style: const TextStyle(fontSize: 18),
-            ),
-          ],
-        ),
       ),
     );
   }
