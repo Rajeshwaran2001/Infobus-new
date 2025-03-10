@@ -117,11 +117,9 @@ class SecondScreen extends StatefulWidget {
 class _SecondScreenState extends State<SecondScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool isPlaying = false;
-  bool isLoading = true;
+  bool isLoading = false;
   final ScrollController _scrollController = ScrollController();
-
-  final String streamUrl =
-      "https://luan.xyz/files/audio/nasa_on_a_mission.mp3";
+  final String streamUrl = "https://luan.xyz/files/audio/nasa_on_a_mission.mp3";
 
   @override
   void initState() {
@@ -137,38 +135,36 @@ class _SecondScreenState extends State<SecondScreen> {
   }
 
   Future<void> _startPlaying() async {
-    setState(() {
-      isLoading = true;
-    });
-
-    await _audioPlayer.setSourceUrl(streamUrl);
-    await _audioPlayer.resume();
-
-    setState(() {
-      isPlaying = true;
-      isLoading = false;
-    });
+    setState(() => isLoading = true);
+    try {
+      await _audioPlayer.setSourceUrl(streamUrl);
+      await _audioPlayer.resume();
+      setState(() {
+        isPlaying = true;
+        isLoading = false;
+      });
+    } catch (e) {
+      print("Error starting stream: $e");
+      setState(() => isLoading = false);
+    }
   }
 
   void _togglePlayPause() async {
     if (isPlaying) {
       await _audioPlayer.pause();
     } else {
-      setState(() {
-        isLoading = true;
-      });
-
-      await _audioPlayer.setSourceUrl(streamUrl);
-      await _audioPlayer.resume();
+      setState(() => isLoading = true);
+      try {
+        await _audioPlayer.resume();
+        setState(() => isPlaying = true);
+      } catch (e) {
+        print("Error resuming stream: $e");
+      }
     }
-
-    setState(() {
-      isPlaying = !isPlaying;
-      isLoading = false;
-    });
+    setState(() => isLoading = false);
   }
 
-  void _stopAndExit() {
+    void _stopAndExit() {
     _audioPlayer.stop();
     exit(0);
   }
