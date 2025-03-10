@@ -121,7 +121,7 @@ class _SecondScreenState extends State<SecondScreen> {
   final ScrollController _scrollController = ScrollController();
 
   final String streamUrl =
-      "http://cast3.my-control-panel.com:7714/stream?type=mp3&nocache=2";
+      "https://luan.xyz/files/audio/nasa_on_a_mission.mp3";
 
   @override
   void initState() {
