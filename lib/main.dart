@@ -33,16 +33,20 @@ class _WebViewAppState extends State<WebViewApp> {
       ..setBackgroundColor(const Color(0x00000000))
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..addJavaScriptChannel(
-        'FlutterChannel',
-        onMessageReceived: (JavaScriptMessage message) {
-          if (message.message == "openFlutterScreen") {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const SecondScreen()),
-            );
-          }
-        },
-      )
+    'FlutterChannel',
+    onMessageReceived: (JavaScriptMessage message) {
+      final Map<String, dynamic> receivedData = jsonDecode(message.message);
+      String action = receivedData['message'];
+      String? data = receivedData['district'];
+
+      if (action == "openFlutterScreen") {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => SecondScreen(data: data)),
+        );
+      }
+    },
+  )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
@@ -62,7 +66,7 @@ class _WebViewAppState extends State<WebViewApp> {
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://infobus.in/new-view'));
+      ..loadRequest(Uri.parse('http://portal.infobus.in/new-view'));
   }
 
   @override
@@ -108,7 +112,8 @@ class _WebViewAppState extends State<WebViewApp> {
 }
 
 class SecondScreen extends StatefulWidget {
-  const SecondScreen({super.key});
+  final String? data;
+  const SecondScreen({Key? key, this.data}) : super(key: key);
 
   @override
   State<SecondScreen> createState() => _SecondScreenState();
@@ -117,14 +122,44 @@ class SecondScreen extends StatefulWidget {
 class _SecondScreenState extends State<SecondScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool isPlaying = false;
-  bool isLoading = false;
+  bool isLoading = true;
   final ScrollController _scrollController = ScrollController();
-  final String streamUrl = "https://luan.xyz/files/audio/nasa_on_a_mission.mp3";
+
+  String streamUrl = "";
+
+  final Map<String, String> portMapping = {
+    "RAMNAD": "7523",
+    "DGL": "7698",
+    "KARUR": "7710",
+    "KKDI": "7519",
+    "KUM": "7527",
+    "Mayiladuthurai": "7182",
+    "MADURAI": "7714",
+    "MDU": "7714",
+    "MNGDI": "7730",
+    "NGL": "7738",
+    "PATTU": "7531",
+    "TANJ": "7589",
+    "THENI": "7722",
+    "TRICHY": "7597",
+    "CBE": "7702",
+  };
 
   @override
   void initState() {
     super.initState();
+    _updateStreamUrl();
     _startPlaying();
+    print("Received data: ${widget.data}");
+  }
+
+  void _updateStreamUrl() {
+    List<String> parts = (widget.data ?? "").split(',');
+    String firstPart = parts.isNotEmpty ? parts.first.trim() : "";
+    String port = portMapping[firstPart] ?? "7714"; 
+    setState(() {
+      streamUrl = "http://cast3.my-control-panel.com:$port/stream?type=mp3&nocache=2";
+    });
   }
 
   @override
@@ -135,36 +170,38 @@ class _SecondScreenState extends State<SecondScreen> {
   }
 
   Future<void> _startPlaying() async {
-    setState(() => isLoading = true);
-    try {
-      await _audioPlayer.setSourceUrl(streamUrl);
-      await _audioPlayer.resume();
-      setState(() {
-        isPlaying = true;
-        isLoading = false;
-      });
-    } catch (e) {
-      print("Error starting stream: $e");
-      setState(() => isLoading = false);
-    }
+    setState(() {
+      isLoading = true;
+    });
+
+    await _audioPlayer.setSourceUrl(streamUrl);
+    await _audioPlayer.resume();
+
+    setState(() {
+      isPlaying = true;
+      isLoading = false;
+    });
   }
 
   void _togglePlayPause() async {
     if (isPlaying) {
       await _audioPlayer.pause();
     } else {
-      setState(() => isLoading = true);
-      try {
-        await _audioPlayer.resume();
-        setState(() => isPlaying = true);
-      } catch (e) {
-        print("Error resuming stream: $e");
-      }
+      setState(() {
+        isLoading = true;
+      });
+
+      await _audioPlayer.setSourceUrl(streamUrl);
+      await _audioPlayer.resume();
     }
-    setState(() => isLoading = false);
+
+    setState(() {
+      isPlaying = !isPlaying;
+      isLoading = false;
+    });
   }
 
-    void _stopAndExit() {
+  void _stopAndExit() {
     _audioPlayer.stop();
     exit(0);
   }
