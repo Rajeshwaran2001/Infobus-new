@@ -67,7 +67,7 @@ class _WebViewAppState extends State<WebViewApp> {
           },
         ),
       )
-      ..loadRequest(Uri.parse('http://portal.infobus.in/new-view'));
+      ..loadRequest(Uri.parse('https://portal.busads.in/new-view'));
   }
 
   @override
