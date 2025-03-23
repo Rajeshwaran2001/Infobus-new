@@ -159,7 +159,7 @@ class _SecondScreenState extends State<SecondScreen> {
     String firstPart = parts.isNotEmpty ? parts.first.trim() : "";
     String port = portMapping[firstPart] ?? "7714"; 
     setState(() {
-      streamUrl = "http://cast3.my-control-panel.com:$port/stream?type=mp3&nocache=2";
+      streamUrl = "https://portal.busads.in/proxy/?port=$port";
     });
   }
 
