@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'src/navigation_controls.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert'; 
@@ -128,24 +128,6 @@ class _SecondScreenState extends State<SecondScreen> {
 
   String streamUrl = "";
 
-  final Map<String, String> portMapping = {
-    "RAMNAD": "7523",
-    "DGL": "7698",
-    "KARUR": "7710",
-    "KKDI": "7519",
-    "KUM": "7527",
-    "Mayiladuthurai": "7182",
-    "MADURAI": "7714",
-    "MDU": "7714",
-    "MNGDI": "7730",
-    "NGL": "7738",
-    "PATTU": "7531",
-    "TANJ": "7589",
-    "THENI": "7722",
-    "TRICHY": "7597",
-    "CBE": "7702",
-  };
-
   @override
   void initState() {
     super.initState();
@@ -155,15 +137,12 @@ class _SecondScreenState extends State<SecondScreen> {
   }
 
   void _updateStreamUrl() {
-    List<String> parts = (widget.data ?? "").split(',');
-    String firstPart = parts.isNotEmpty ? parts.first.trim() : "";
-    String port = portMapping[firstPart] ?? "7714"; 
     setState(() {
       streamUrl = "https://cast3.asurahosting.com/proxy/info_dindugal/stream";
     });
   }
 
-  @override
+   @override
   void dispose() {
     _audioPlayer.dispose();
     _scrollController.dispose();
@@ -175,11 +154,17 @@ class _SecondScreenState extends State<SecondScreen> {
       isLoading = true;
     });
 
-    await _audioPlayer.setSourceUrl(streamUrl);
-    await _audioPlayer.resume();
+    try {
+      await _audioPlayer.setUrl(streamUrl);
+      await _audioPlayer.play();
+      setState(() {
+        isPlaying = true;
+      });
+    } catch (e) {
+      print("Error playing audio: $e");
+    }
 
     setState(() {
-      isPlaying = true;
       isLoading = false;
     });
   }
@@ -192,8 +177,8 @@ class _SecondScreenState extends State<SecondScreen> {
         isLoading = true;
       });
 
-      await _audioPlayer.setSourceUrl(streamUrl);
-      await _audioPlayer.resume();
+      await _audioPlayer.setUrl(streamUrl);
+      await _audioPlayer.play();
     }
 
     setState(() {
@@ -209,137 +194,204 @@ class _SecondScreenState extends State<SecondScreen> {
 
   @override
   Widget build(BuildContext context) {
-    List<Map<String, String>> schedule = [
-      {"time": "6.15 AM", "content": "Indraya sinthanai"},
-      {"time": "6.40 AM", "content": "Birthday wishes"},
-      {"time": "7.05 AM", "content": "Indraya kural"},
-      {"time": "7.40 AM", "content": "On board morning wishes"},
-      {"time": "8.15 AM", "content": "Birthday wishes"},
-      {"time": "8.40 AM", "content": "General awareness"},
-      {"time": "9.20 AM", "content": "Birthday wishes"},
-      {"time": "9.50 AM", "content": "General information"},
-      {"time": "10.25 AM", "content": "Passenger alerting"},
-      {"time": "10.45 AM", "content": "Driver / Crew awareness"},
-      {"time": "11.15 AM", "content": "Welcome wishes"},
-      {"time": "11.50 AM", "content": "Passenger - Thanking tags"},
-      {"time": "12.05 PM", "content": "General information"},
-      {"time": "12.40 PM", "content": "Passenger alerts"},
-      {"time": "1.15 PM", "content": "General awareness"},
-      {"time": "1.45 PM", "content": "General information"},
-      {"time": "2.10 PM", "content": "Driver / Crew awareness"},
-      {"time": "2.55 PM", "content": "Passenger - Thanking tags"},
-      {"time": "3.20 PM", "content": "General information"},
-      {"time": "3.45 PM", "content": "Passenger alerts"},
-      {"time": "4.15 PM", "content": "Welcome wishes"},
-      {"time": "4.50 PM", "content": "Passenger - Thanking tags"},
-      {"time": "5.15 PM", "content": "General awareness"},
-      {"time": "5.45 PM", "content": "Driver alert messages"},
-      {"time": "6.20 PM", "content": "General information"},
-      {"time": "6.50 PM", "content": "Birthday wishes"},
-      {"time": "7.25 PM", "content": "Wedding wishes"},
-      {"time": "7.40 PM", "content": "Passenger alerts"},
-      {"time": "8.15 PM", "content": "General information"},
-      {"time": "8.40 PM", "content": "Driver alert messages"},
-      {"time": "9.10 PM", "content": "General Wishes tag"},
-      {"time": "9.35 PM", "content": "Passenger - Thanking tags"},
-    ];
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("InfoBus Radio",
             style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFFDE1A2A),
       ),
-      body: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 20.0),
-              child: Image.asset(
-                'images/fm_radio.png',
-                width: 380,
-                height: 100,
-                fit: BoxFit.scaleDown,
-              ),
-            ),
-            const SizedBox(height: 10),
-            isLoading
-                ? const CircularProgressIndicator(color: Colors.red)
-                : Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              isPlaying
-                                  ? Icons.pause_circle_filled
-                                  : Icons.play_circle_filled,
-                              size: 80,
-                              color: Colors.red,
-                            ),
-                            onPressed: _togglePlayPause,
-                          ),
-                          const SizedBox(width: 20),
-                          IconButton(
-                            icon: const Icon(Icons.stop_circle,
-                                size: 80, color: Colors.red),
-                            onPressed: _stopAndExit,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        isPlaying ? "Playing..." : "Paused",
-                        style: const TextStyle(fontSize: 18),
-                      ),
-                    ],
-                  ),
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.6,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: Table(
-                    border: TableBorder.all(),
-                    columnWidths: const {
-                      0: FractionColumnWidth(0.3),
-                      1: FractionColumnWidth(0.7),
-                    },
-                    children: [
-                      TableRow(children: [
-                        TableCell(
-                            child: Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text("Time Slot",
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold)))),
-                        TableCell(
-                            child: Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text("On Air - Content",
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold)))),
-                      ]),
-                      ...schedule.map((entry) => TableRow(children: [
-                            TableCell(
-                                child: Padding(
-                                    padding: EdgeInsets.all(8.0),
-                                    child: Text(entry['time']!))),
-                            TableCell(
-                                child: Padding(
-                                    padding: EdgeInsets.all(8.0),
-                                    child: Text(entry['content']!))),
-                          ])).toList(),
-                    ],
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.red, Colors.deepOrangeAccent],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // App Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Text(
+                  "InfoBus Radio 📻",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            ),
-          ],
+
+              // Radio Logo
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Image.asset(
+                  'images/fm_radio.png',
+                  width: 180,
+                  height: 100,
+                  fit: BoxFit.scaleDown,
+                ),
+              ),
+
+              // Play / Pause Buttons with Animation
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 500),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isPlaying ? Colors.greenAccent : Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_filled,
+                    size: 80,
+                    color: Colors.red,
+                  ),
+                  onPressed: _togglePlayPause,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Status Text
+              Text(
+                isPlaying ? "Playing... 🎶" : "Paused ⏸️",
+                style: const TextStyle(fontSize: 20, color: Colors.white),
+              ),
+
+              const SizedBox(height: 10),
+
+              // Soundwave Animation
+              if (isPlaying)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: SizedBox(
+                    height: 50,
+                    child: Image.asset("images/sound_wave.gif"),
+                  ),
+                ),
+
+              // Stop Button
+              IconButton(
+                icon: const Icon(Icons.stop_circle, size: 60, color: Colors.white),
+                onPressed: _stopAndExit,
+              ),
+
+              const SizedBox(height: 20),
+
+              // Schedule Table
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Table(
+                      border: TableBorder.all(color: Colors.white),
+                      columnWidths: const {
+                        0: FractionColumnWidth(0.3),
+                        1: FractionColumnWidth(0.7),
+                      },
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                          ),
+                          children: [
+                            TableCell(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  "Time Slot",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            TableCell(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  "On Air - Content",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Example Schedule (You can replace this with dynamic data)
+                        TableRow(
+                          children: [
+                            TableCell(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  "10:00 AM",
+                                  style: TextStyle(color: Colors.white),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            TableCell(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  "Morning Talk Show ☕",
+                                  style: TextStyle(color: Colors.white),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
+                            TableCell(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  "12:00 PM",
+                                  style: TextStyle(color: Colors.white),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            TableCell(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  "Top 10 Songs 🎶",
+                                  style: TextStyle(color: Colors.white),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

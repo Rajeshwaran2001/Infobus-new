@@ -37,6 +37,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   webview_flutter: ^4.10.0
   audioplayers: ^6.2.0
+  just_audio: ^0.9.46
 
 dev_dependencies:
   flutter_test:
