@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 import 'src/navigation_controls.dart';
 import 'package:just_audio/just_audio.dart';
 import 'dart:io';
@@ -30,44 +33,110 @@ class _WebViewAppState extends State<WebViewApp> {
   @override
   void initState() {
     super.initState();
+    _requestStoragePermission();
+
     controller = WebViewController()
-      ..setBackgroundColor(const Color(0x00000000))
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..addJavaScriptChannel(
-    'FlutterChannel',
-    onMessageReceived: (JavaScriptMessage message) {
-      final Map<String, dynamic> receivedData = jsonDecode(message.message);
-      String action = receivedData['message'];
-      String? data = receivedData['district'];
+        'FlutterChannel',
+        onMessageReceived: (JavaScriptMessage message) async {
+          final Map<String, dynamic> receivedData = jsonDecode(message.message);
+          String action = receivedData['message'];
 
-      if (action == "openFlutterScreen") {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => SecondScreen(data: data)),
-        );
-      }
-    },
-  )
+          if (action == 'downloadBlob') {
+            final base64Data = receivedData['data'].split(',')[1];
+            final fileName = receivedData['filename'];
+
+            final bytes = base64Decode(base64Data);
+            final downloadDir = Directory('/storage/emulated/0/Download');
+            final file = File('${downloadDir.path}/$fileName');
+            await file.writeAsBytes(bytes);
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Blob file saved to: ${file.path}')),
+            );
+          }
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (String url) {
-            setState(() {
-              isLoading = true;
-            });
+          onNavigationRequest: (NavigationRequest request) async {
+            if (request.url.endsWith('.xlsx')) {
+              _downloadFile(request.url);
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
           },
-          onPageFinished: (String url) {
-            setState(() {
-              isLoading = false;
-            });
+          onPageStarted: (_) => setState(() => isLoading = true),
+          onPageFinished: (_) async {
+            setState(() => isLoading = false);
+
+            await controller.runJavaScript('''
+            setTimeout(() => {
+              document.querySelectorAll('a').forEach(a => {
+                a.addEventListener('click', function(e) {
+                  const href = a.getAttribute('href');
+                  if (href && href.startsWith('blob:')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    fetch(href)
+                      .then(response => response.blob())
+                      .then(blob => {
+                        const reader = new FileReader();
+                        reader.onloadend = function() {
+                          const base64data = reader.result;
+                          FlutterChannel.postMessage(JSON.stringify({
+                            message: 'downloadBlob',
+                            data: base64data,
+                            filename: 'download.xlsx'
+                          }));
+                        };
+                        reader.readAsDataURL(blob);
+                      });
+                  }
+                });
+              });
+            }, 1000);
+          ''');
           },
-          onWebResourceError: (WebResourceError error) {
-            setState(() {
-              isLoading = false;
-            });
-          },
+          onWebResourceError: (_) => setState(() => isLoading = false),
         ),
       )
       ..loadRequest(Uri.parse('https://portal.busads.in/new-view'));
+  }
+
+  Future<void> _requestStoragePermission() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.manageExternalStorage.request();
+      if (!status.isGranted) {
+        final fallback = await Permission.storage.request();
+        if (!fallback.isGranted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Storage permission denied')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _downloadFile(String url) async {
+    try {
+      final downloadDir = Directory('/storage/emulated/0/Download');
+      final fileName = url.split('/').last;
+      final filePath = '${downloadDir.path}/$fileName';
+
+      final response = await http.get(Uri.parse(url));
+      final file = File(filePath);
+      await file.writeAsBytes(response.bodyBytes);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('File downloaded to: $filePath')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Download failed: $e')),
+      );
+    }
   }
 
   @override
@@ -78,16 +147,13 @@ class _WebViewAppState extends State<WebViewApp> {
         backgroundColor: const Color(0xFFDE1A2A),
         iconTheme: const IconThemeData(color: Colors.white),
         centerTitle: true,
-        actions: [
-          NavigationControls(controller: controller),
-        ],
       ),
       body: Stack(
         children: [
           WebViewWidget(controller: controller),
           if (isLoading)
             Container(
-              color: Colors.white.withAlpha((0.7 * 255).toInt()),
+              color: Colors.white.withOpacity(0.7),
               child: const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
