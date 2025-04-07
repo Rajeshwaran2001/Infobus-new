@@ -47,25 +47,34 @@ class _WebViewAppState extends State<WebViewApp> {
           String action = receivedData['message'];
 
           if (action == 'downloadBlob') {
-            final base64Data = receivedData['data'].split(',')[1];
-            final fileName = receivedData['filename'];
+              final base64Data = receivedData['data'].split(',')[1];
+              final fileName = receivedData['filename'];
 
-            final bytes = base64Decode(base64Data);
-            final downloadDir = Directory('/storage/emulated/0/Download');
-            final file = File('${downloadDir.path}/$fileName');
-            await file.writeAsBytes(bytes);
+              final bytes = base64Decode(base64Data);
+              final downloadDir = Directory('/storage/emulated/0/Download');
+              final file = File('${downloadDir.path}/$fileName');
+              await file.writeAsBytes(bytes);
 
-           ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Blob file saved to: ${file.path}'),
-                action: SnackBarAction(
-                  label: 'Open',
-                  onPressed: () {
-                    OpenFile.open(file.path);
-                  },
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Blob file saved to: ${file.path}'),
+                  action: SnackBarAction(
+                    label: 'Open',
+                    onPressed: () {
+                      OpenFile.open(file.path);
+                    },
+                  ),
                 ),
-              ),
-          );
+              );
+            } else if (action == 'openFlutterScreen') {
+              String radioUrl = receivedData['radio'];
+            
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => RadioPlayerScreen(radioUrl: radioUrl),
+                ),
+              );
           }
         },
       )
