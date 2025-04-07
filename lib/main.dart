@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
 import 'package:http/http.dart' as http;
 import 'src/navigation_controls.dart';
 import 'package:just_audio/just_audio.dart';
@@ -33,7 +34,9 @@ class _WebViewAppState extends State<WebViewApp> {
   @override
   void initState() {
     super.initState();
-    _requestStoragePermission();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _requestStoragePermission();
+    });
 
     controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -52,9 +55,17 @@ class _WebViewAppState extends State<WebViewApp> {
             final file = File('${downloadDir.path}/$fileName');
             await file.writeAsBytes(bytes);
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Blob file saved to: ${file.path}')),
-            );
+           ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Blob file saved to: ${file.path}'),
+                action: SnackBarAction(
+                  label: 'Open',
+                  onPressed: () {
+                    OpenFile.open(file.path);
+                  },
+                ),
+              ),
+          );
           }
         },
       )
@@ -130,7 +141,15 @@ class _WebViewAppState extends State<WebViewApp> {
       await file.writeAsBytes(response.bodyBytes);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('File downloaded to: $filePath')),
+        SnackBar(
+          content: Text('File downloaded to: $filePath'),
+          action: SnackBarAction(
+            label: 'Open',
+            onPressed: () {
+              OpenFile.open(filePath);
+            },
+          ),
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
