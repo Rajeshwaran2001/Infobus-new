@@ -471,7 +471,7 @@ class _SecondScreenState extends State<SecondScreen> {
                                         decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.2),
                                         ),
-                                        children: const [
+                                        children: [
                                           TableCell(
                                             child: Padding(
                                               padding: EdgeInsets.all(8.0),
