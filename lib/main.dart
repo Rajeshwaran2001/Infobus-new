@@ -6,9 +6,10 @@ import 'package:open_file/open_file.dart';
 import 'package:http/http.dart' as http;
 import 'src/navigation_controls.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
 import 'dart:async';
-import 'dart:convert'; 
+import 'dart:convert';
 
 void main() {
   runApp(
@@ -47,34 +48,38 @@ class _WebViewAppState extends State<WebViewApp> {
           String action = receivedData['message'];
 
           if (action == 'downloadBlob') {
-              final base64Data = receivedData['data'].split(',')[1];
-              final fileName = receivedData['filename'];
+            final base64Data = receivedData['data'].split(',')[1];
+            final fileName = receivedData['filename'];
 
-              final bytes = base64Decode(base64Data);
-              final downloadDir = Directory('/storage/emulated/0/Download');
-              final file = File('${downloadDir.path}/$fileName');
-              await file.writeAsBytes(bytes);
+            final bytes = base64Decode(base64Data);
+            final downloadDir = Directory('/storage/emulated/0/Download');
+            final file = File('${downloadDir.path}/$fileName');
+            await file.writeAsBytes(bytes);
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Blob file saved to: ${file.path}'),
-                  action: SnackBarAction(
-                    label: 'Open',
-                    onPressed: () {
-                      OpenFile.open(file.path);
-                    },
-                  ),
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Blob file saved to: ${file.path}'),
+                action: SnackBarAction(
+                  label: 'Open',
+                  onPressed: () {
+                    OpenFile.open(file.path);
+                  },
                 ),
-              );
-            } else if (action == 'openFlutterScreen') {
-              String radioUrl = receivedData['radio'];
-            
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => RadioPlayerScreen(radioUrl: radioUrl),
+              ),
+            );
+          } else if (action == 'openFlutterScreen') {
+            String radioUrl = receivedData['radio'];
+            String adName = receivedData['ad_name'];
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SecondScreen(
+                  radioUrl: radioUrl,
+                  adName: adName,
                 ),
-              );
+              ),
+            );
           }
         },
       )
@@ -87,7 +92,11 @@ class _WebViewAppState extends State<WebViewApp> {
             }
             return NavigationDecision.navigate;
           },
-          onPageStarted: (_) => setState(() => isLoading = true),
+          onPageStarted: (_) {
+            setState(() {
+              isLoading = true;
+            });
+          },
           onPageFinished: (_) async {
             setState(() => isLoading = false);
 
@@ -207,8 +216,9 @@ class _WebViewAppState extends State<WebViewApp> {
 }
 
 class SecondScreen extends StatefulWidget {
-  final String? data;
-  const SecondScreen({Key? key, this.data}) : super(key: key);
+  final String? radioUrl;
+  final String? adName;
+  const SecondScreen({Key? key, this.radioUrl, this.adName}) : super(key: key);
 
   @override
   State<SecondScreen> createState() => _SecondScreenState();
@@ -221,22 +231,39 @@ class _SecondScreenState extends State<SecondScreen> {
   final ScrollController _scrollController = ScrollController();
 
   String streamUrl = "";
+  String? errorMessage;
+  bool isApiLoading = false;
+  List<ScheduleItem> scheduleList = [];
 
   @override
   void initState() {
     super.initState();
     _updateStreamUrl();
     _startPlaying();
-    print("Received data: ${widget.data}");
+    fetchScheduleData();
+
+    _audioPlayer.playerStateStream.listen((state) {
+      final playing = state.playing;
+      final processing = state.processingState;
+
+      setState(() {
+        isPlaying = playing && processing == ProcessingState.ready;
+        isLoading = processing == ProcessingState.loading ||
+            processing == ProcessingState.buffering;
+      });
+    });
+
+    print("Received radio URL: ${widget.radioUrl}");
+    print("Received ad name: ${widget.adName}");
   }
 
   void _updateStreamUrl() {
     setState(() {
-      streamUrl = "https://cast3.asurahosting.com/proxy/info_dindugal/stream";
+      streamUrl = "${widget.radioUrl}";
     });
   }
 
-   @override
+  @override
   void dispose() {
     _audioPlayer.dispose();
     _scrollController.dispose();
@@ -244,41 +271,27 @@ class _SecondScreenState extends State<SecondScreen> {
   }
 
   Future<void> _startPlaying() async {
-    setState(() {
-      isLoading = true;
-    });
-
     try {
+      setState(() {
+        isLoading = true;
+      });
       await _audioPlayer.setUrl(streamUrl);
       await _audioPlayer.play();
-      setState(() {
-        isPlaying = true;
-      });
     } catch (e) {
       print("Error playing audio: $e");
+      setState(() {
+        isLoading = false;
+        isPlaying = false;
+      });
     }
-
-    setState(() {
-      isLoading = false;
-    });
   }
 
   void _togglePlayPause() async {
     if (isPlaying) {
       await _audioPlayer.pause();
     } else {
-      setState(() {
-        isLoading = true;
-      });
-
-      await _audioPlayer.setUrl(streamUrl);
       await _audioPlayer.play();
     }
-
-    setState(() {
-      isPlaying = !isPlaying;
-      isLoading = false;
-    });
   }
 
   void _stopAndExit() {
@@ -286,18 +299,72 @@ class _SecondScreenState extends State<SecondScreen> {
     exit(0);
   }
 
+  Future<void> fetchScheduleData() async {
+    setState(() {
+      isApiLoading = true;
+      errorMessage = null;
+      scheduleList = [];
+    });
+
+    final now = DateTime.now();
+    final timeOnly = DateFormat.jm().format(now);
+
+    final data = jsonEncode({
+      "adname": widget.adName,
+      "time": timeOnly, // Or use a fixed time like "5:25 PM"
+    });
+
+    final url = Uri.parse("https://portal.busads.in/api/radio");
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: data,
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded['message'] != null) {
+          // Show no data message
+          setState(() {
+            errorMessage = "No data to display.";
+          });
+        } else {
+          setState(() {
+            scheduleList = (decoded as List)
+                .map((json) => ScheduleItem.fromJson(json))
+                .toList();
+          });
+        }
+      } else {
+        setState(() {
+          errorMessage = "Failed to get schedule";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = "Failed to get schedule";
+      });
+    } finally {
+      setState(() {
+        isApiLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("InfoBus Radio",
+        title: const Text("InfoBus Radio 📻",
             style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFFDE1A2A),
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.red, Colors.deepOrangeAccent],
+            colors: [Colors.redAccent.shade100, Colors.redAccent.shade100],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -305,189 +372,215 @@ class _SecondScreenState extends State<SecondScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // App Bar
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Text(
-                  "InfoBus Radio 📻",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-
-              // Radio Logo
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.only(top: 10, bottom: 20),
                 child: Image.asset(
                   'images/fm_radio.png',
-                  width: 180,
-                  height: 100,
+                  width: 380,
+                  height: 80,
                   fit: BoxFit.scaleDown,
                 ),
               ),
-
-              // Play / Pause Buttons with Animation
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 500),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isPlaying ? Colors.greenAccent : Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      spreadRadius: 2,
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 500),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isPlaying ? Colors.greenAccent : Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 10,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 60,
+                              height: 60,
+                              child:
+                                  CircularProgressIndicator(color: Colors.red),
+                            )
+                          : IconButton(
+                              icon: Icon(
+                                isPlaying
+                                    ? Icons.pause_circle_filled
+                                    : Icons.play_circle_filled,
+                                size: 80,
+                                color: Colors.red,
+                              ),
+                              onPressed: _togglePlayPause,
+                            ),
                     ),
+                    const SizedBox(width: 30),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 40.0),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.stop_circle,
+                          size: 80,
+                          color: Colors.red,
+                        ),
+                        onPressed: _stopAndExit,
+                      ),
+                    )
                   ],
                 ),
-                child: IconButton(
-                  icon: Icon(
-                    isPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_filled,
-                    size: 80,
-                    color: Colors.red,
-                  ),
-                  onPressed: _togglePlayPause,
-                ),
               ),
-
-              const SizedBox(height: 10),
-
-              // Status Text
               Text(
                 isPlaying ? "Playing... 🎶" : "Paused ⏸️",
                 style: const TextStyle(fontSize: 20, color: Colors.white),
               ),
-
-              const SizedBox(height: 10),
-
-              // Soundwave Animation
-              if (isPlaying)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: SizedBox(
-                    height: 50,
-                    child: Image.asset("images/sound_wave.gif"),
-                  ),
-                ),
-
-              // Stop Button
-              IconButton(
-                icon: const Icon(Icons.stop_circle, size: 60, color: Colors.white),
-                onPressed: _stopAndExit,
-              ),
-
               const SizedBox(height: 20),
-
-              // Schedule Table
               Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Table(
-                      border: TableBorder.all(color: Colors.white),
-                      columnWidths: const {
-                        0: FractionColumnWidth(0.3),
-                        1: FractionColumnWidth(0.7),
-                      },
-                      children: [
-                        TableRow(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                          ),
-                          children: [
-                            TableCell(
-                              child: Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  "Time Slot",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : errorMessage != null
+                        ? Center(
+                            child: Text(
+                              errorMessage!,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          )
+                        : scheduleList.isEmpty
+                            ? const Center(
+                                child: Text("No data to display.",
+                                    style: const TextStyle(
+                                        fontSize: 80, color: Colors.white)),
+                              )
+                            : SingleChildScrollView(
+                                controller: _scrollController,
+                                scrollDirection: Axis.vertical,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(10.0),
+                                  child: Table(
+                                    border:
+                                        TableBorder.all(color: Colors.black),
+                                    columnWidths: const {
+                                      0: FractionColumnWidth(0.3),
+                                      1: FractionColumnWidth(0.7),
+                                    },
+                                    children: [
+                                      TableRow(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.2),
+                                        ),
+                                        children: const [
+                                          TableCell(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(8.0),
+                                              child: Text(
+                                                "Time Slot",
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ),
+                                          TableCell(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(8.0),
+                                              child: Text(
+                                                "On Air - Content",
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      ...scheduleList.map((item) {
+                                        final isNext = item.next == true;
+                                        final isCustomer =
+                                            item.isCustomer == true;
+
+                                        return TableRow(
+                                          decoration: BoxDecoration(
+                                            color: isNext
+                                                ? Colors.yellow.withOpacity(0.4)
+                                                : null, // Highlight if next
+                                          ),
+                                          children: [
+                                            TableCell(
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                child: Text(
+                                                  item.time,
+                                                  style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontWeight: FontWeight
+                                                        .bold, // Always bold for time
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            ),
+                                            TableCell(
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.all(8.0),
+                                                child: Text(
+                                                  item.name,
+                                                  style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontWeight: isCustomer
+                                                        ? FontWeight.bold
+                                                        : FontWeight
+                                                            .normal, // Bold if isCustomer
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ],
                                   ),
-                                  textAlign: TextAlign.center,
                                 ),
                               ),
-                            ),
-                            TableCell(
-                              child: Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  "On Air - Content",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        // Example Schedule (You can replace this with dynamic data)
-                        TableRow(
-                          children: [
-                            TableCell(
-                              child: Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  "10:00 AM",
-                                  style: TextStyle(color: Colors.white),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            TableCell(
-                              child: Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  "Morning Talk Show ☕",
-                                  style: TextStyle(color: Colors.white),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        TableRow(
-                          children: [
-                            TableCell(
-                              child: Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  "12:00 PM",
-                                  style: TextStyle(color: Colors.white),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            TableCell(
-                              child: Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  "Top 10 Songs 🎶",
-                                  style: TextStyle(color: Colors.white),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              )
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class ScheduleItem {
+  final String time;
+  final String name;
+  final bool next;
+  final bool isCustomer;
+
+  ScheduleItem({
+    required this.time,
+    required this.name,
+    required this.next,
+    required this.isCustomer,
+  });
+
+  factory ScheduleItem.fromJson(Map<String, dynamic> json) {
+    return ScheduleItem(
+      time: json['Time'] ?? '',
+      name: json['Name'] ?? '',
+      next: json['next_schedule']?.toString().toLowerCase() == 'true',
+      isCustomer:
+          json['upcoming_customer_schedule']?.toString().toLowerCase() ==
+              'true',
     );
   }
 }
