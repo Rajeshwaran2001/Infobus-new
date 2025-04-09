@@ -322,7 +322,7 @@ class _SecondScreenState extends State<SecondScreen> {
         headers: {"Content-Type": "application/json"},
         body: data,
       );
-
+      print("Response status: ${response.body}, ${data}");
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         if (decoded is Map && decoded['message'] != null) {
@@ -364,7 +364,7 @@ class _SecondScreenState extends State<SecondScreen> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.redAccent.shade100, Colors.redAccent.shade100],
+            colors: [Colors.white60, Colors.white60],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -435,7 +435,7 @@ class _SecondScreenState extends State<SecondScreen> {
               ),
               Text(
                 isPlaying ? "Playing... 🎶" : "Paused ⏸️",
-                style: const TextStyle(fontSize: 20, color: Colors.white),
+                style: const TextStyle(fontSize: 20, color: Colors.black),
               ),
               const SizedBox(height: 20),
               Expanded(
@@ -445,15 +445,12 @@ class _SecondScreenState extends State<SecondScreen> {
                         ? Center(
                             child: Text(
                               errorMessage!,
-                              style: const TextStyle(color: Colors.white),
+                              style: const TextStyle(
+                                  color: Colors.black, fontSize: 30),
                             ),
                           )
                         : scheduleList.isEmpty
-                            ? const Center(
-                                child: Text("No data to display.",
-                                    style: const TextStyle(
-                                        fontSize: 80, color: Colors.white)),
-                              )
+                            ? const Center(child: Text("No data to display."))
                             : SingleChildScrollView(
                                 controller: _scrollController,
                                 scrollDirection: Axis.vertical,
